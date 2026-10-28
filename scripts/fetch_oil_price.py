@@ -15,6 +15,8 @@ import re
 import sys
 import urllib.request
 
+from build_history import build_history
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 
@@ -151,6 +153,8 @@ def main() -> int:
     (hist / (now.strftime("%H%M") + ".json")).write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+
+    build_history(DATA_DIR)
 
     print(f"[done] provinces={data['province_count']} "
           f"updated_at={data['updated_at']} content_changed={changed}")
