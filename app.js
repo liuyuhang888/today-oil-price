@@ -73,13 +73,33 @@
   }
   // UAPI returns nearby administrative centroids, so treat results as estimates.
   const provinceNames = Object.values(regions).flat();
-  let locationRequest = 0;
+  let locationRequest = 0, localProvince = '';
   function displayLocal(name, message) {
+    localProvince = name;
     $('local-name').textContent = name || '未选择地区';
     $('local-status').textContent = message;
     const values = data && name && data.provinces[name];
     ['92', '95'].forEach(grade => { $('local-' + grade).innerHTML = `${format(price(values && values['t' + grade]))} <small>元/升</small>`; });
+    renderCalculator();
   }
+  function renderCalculator() {
+    const consumptionText = $('calc-consumption').value.trim(), distanceText = $('calc-distance').value.trim();
+    const consumption = Number(consumptionText), distance = Number(distanceText);
+    const valid = consumptionText && distanceText && Number.isFinite(consumption) && Number.isFinite(distance) && consumption > 0 && distance > 0;
+    const liters = valid ? consumption * distance / 100 : null;
+    const values = data && localProvince && data.provinces[localProvince];
+    ['92', '95'].forEach(grade => {
+      const unitPrice = price(values && values['t' + grade]);
+      const cost = liters !== null && unitPrice !== null ? liters * unitPrice : null;
+      $('calc-' + grade).textContent = cost !== null && Number.isFinite(cost) ? `¥ ${cost.toFixed(2)}` : '—';
+    });
+    if (!localProvince) $('calc-status').textContent = '请选择地区，并填写油耗和里程。';
+    else if (!valid || !Number.isFinite(liters)) $('calc-status').textContent = '请填写大于 0 的油耗和里程。';
+    else $('calc-status').textContent = `${localProvince} · 预计用油 ${liters.toFixed(2)} 升；价格缺失的油品无法计算。`;
+  }
+  $('calc-consumption').addEventListener('input', renderCalculator);
+  $('calc-distance').addEventListener('input', renderCalculator);
+
   function resolveProvince(result, latitude, longitude) {
     if (!Array.isArray(result.results) || !result.results.length) return null;
     const distance = center => {

@@ -24,7 +24,7 @@ class Element {
   addEventListener(name, callback) { this.listeners[name] = callback; }
   querySelector(selector) { return selector === 'svg' ? this.svg : selector === '.chart-cursor' ? this.cursor : this.tooltip; }
 }
-const ids = ['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','load-error'];
+const ids = ['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','load-error','locate-button','local-province','local-name','local-status','local-92','local-95','calc-consumption','calc-distance','calc-92','calc-95','calc-status'];
 const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
 const provinces = {北京:{t92: '8.61', t95:'9.00', t0:'7.00', t98:'10.67'}, 天津:{t92:'8.61'}, 河北:{t92:'8.61'}, 山西:{t92:'8.55'}, 内蒙古:{t92:'8.62'}};
 const history = {days:[
@@ -33,7 +33,7 @@ const history = {days:[
   {date:'2026-10-28', source:'archive', provinces}
 ]};
 class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : ['2026-10-28T00:00:00Z'])); } }
-const context = {document:{getElementById:id=>elements[id]}, fetch:async url=>({ok:true,json:async()=>url.includes('history-index') ? history : {updated_at:'2026-10-28T08:00:00+08:00',provinces}}), Date:FixedDate, Intl, console};
+const context = {document:{getElementById:id=>elements[id]}, fetch:async url=>({ok:true,json:async()=>url.includes('history-index') ? history : {updated_at:'2026-10-28T08:00:00+08:00',provinces}}), Date:FixedDate, Intl, console, navigator:{}, AbortController, URLSearchParams, setTimeout, clearTimeout};
 vm.runInNewContext(fs.readFileSync('app.js','utf8'), context);
 setTimeout(() => {
   const chart = elements.chart;

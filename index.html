@@ -22,6 +22,12 @@
       <div class="local-top"><div><span class="section-kicker">YOUR LOCATION</span><h2 id="local-title">当前位置油价</h2><p>查看所在省份的汽油参考价格</p></div><div class="local-controls"><button id="locate-button" type="button" disabled>⌖ 获取当前位置</button><label><span class="sr-only">手动选择省份</span><select id="local-province"><option value="">手动选择省份</option></select></label></div></div>
       <div class="local-content"><div class="local-area"><span>当前地区</span><strong id="local-name">未选择地区</strong><p id="local-status" role="status">点击定位或手动选择省份</p></div><div class="local-prices"><div><span>92号汽油</span><strong id="local-92">— <small>元/升</small></strong></div><div><span>95号汽油</span><strong id="local-95">— <small>元/升</small></strong></div></div></div>
       <p class="local-privacy">定位需经浏览器授权；坐标将发送至 <a href="https://uapis.cn/docs/api-reference/get-misc-district" target="_blank" rel="noopener">UAPI 国内行政区查询服务</a>，按附近行政区推测省份，请核对结果。价格为省级参考价。</p>
+      <div class="calculator" aria-labelledby="calculator-title">
+        <div class="calculator-heading"><div><h3 id="calculator-title">油费计算器</h3><p>输入油耗与里程，按当前地区油价估算。</p></div><span>按省级参考价计算</span></div>
+        <div class="calculator-grid"><label>百公里油耗<div class="calculator-input"><input id="calc-consumption" type="number" min="0.01" step="any" inputmode="decimal" placeholder="例如 7.5"><span>升 / 100公里</span></div></label><label>行驶里程<div class="calculator-input"><input id="calc-distance" type="number" min="0.01" step="any" inputmode="decimal" placeholder="例如 500"><span>公里</span></div></label></div>
+        <div class="calculator-results" aria-live="polite"><div><span>92号预计油费</span><strong id="calc-92">—</strong></div><div><span>95号预计油费</span><strong id="calc-95">—</strong></div><p id="calc-status">请选择地区，并填写油耗和里程。</p></div>
+        <p class="calculator-note">预计用油量 = 百公里油耗 × 里程 ÷ 100；实际费用会随路况和加油站价格变化。</p>
+      </div>
     </section>
     <section class="intro" id="overview">
       <div><div class="eyebrow"><span></span> 全国油价数据看板</div><h1>每一程，<br class="mobile-break">都心中有数<span class="title-dot">.</span></h1><p>关注油价变化，为下一次出发做好准备。</p></div>
