@@ -24,6 +24,11 @@
     </section>
     <div id="load-error" class="notice hidden" role="alert">油价数据加载失败，请检查网络后<a href="">重新加载</a>。</div>
     <section aria-label="全国平均油价"><div class="section-heading compact"><div><span class="section-kicker">THE BIG PICTURE</span><h2>全国油价概览</h2></div><p>各省有效价格的算术平均值 · 元/升</p></div><div id="stats" class="stats"><div class="loading">正在加载油价数据…</div></div></section>
+    <section class="panel local-panel" aria-labelledby="local-title">
+      <div class="local-top"><div><span class="section-kicker">YOUR LOCATION</span><h2 id="local-title">当前位置油价</h2><p>查看所在省份的汽油参考价格</p></div><div class="local-controls"><button id="locate-button" type="button" disabled>⌖ 获取当前位置</button><label><span class="sr-only">手动选择省份</span><select id="local-province"><option value="">手动选择省份</option></select></label></div></div>
+      <div class="local-content"><div class="local-area"><span>当前地区</span><strong id="local-name">未选择地区</strong><p id="local-status" role="status">点击定位或手动选择省份</p></div><div class="local-prices"><div><span>92号汽油</span><strong id="local-92">— <small>元/升</small></strong></div><div><span>95号汽油</span><strong id="local-95">— <small>元/升</small></strong></div></div></div>
+      <p class="local-privacy">定位需经浏览器授权；坐标将发送至 <a href="https://www.bigdatacloud.com/docs/article/why-is-reverse-geocoding-api-free" target="_blank" rel="noopener">BigDataCloud</a> 以识别所在省份。价格为省级参考价。</p>
+    </section>
     <section class="panel trend-panel" id="trend">
       <div class="panel-heading"><div><span class="section-kicker">PRICE TRENDS</span><h2>年度油价走势</h2><p>查看历史调价记录和每日归档，观察油价变化。</p></div><div class="controls"><label>地区<select id="trend-region" aria-label="选择走势图地区"></select></label><label>油品<select id="trend-fuel" aria-label="选择走势图油品"></select></label></div></div>
       <div class="chart-summary"><div><span id="chart-label">北京 · 92号汽油</span><strong id="chart-value">—</strong></div><div class="chart-meta" id="chart-meta">正在加载历史数据…</div></div>

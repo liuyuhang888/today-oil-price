@@ -71,6 +71,78 @@
     if (!names.length) { $('content').innerHTML = '<div class="empty">没有找到匹配的省份，请尝试其他关键词。</div>'; return; }
     $('content').innerHTML = `<div class="table-wrap"><table><thead><tr><th scope="col">省份 / 地区</th>${fuels.map(([,name]) => `<th scope="col">${name}</th>`).join('')}</tr></thead><tbody>${names.map(name => `<tr><td>${escape(name)}<span class="region-tag">${escape(regionOf[name] || '其他')}</span></td>${fuels.map(([field]) => `<td>${format(price(data.provinces[name][field]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
+  // The free reverse-geocoding endpoint may only be called with live,
+  // user-consented browser coordinates; no coordinates are stored.
+  const provinceCodes = {'BJ':'北京','TJ':'天津','HE':'河北','SX':'山西','NM':'内蒙古','LN':'辽宁','JL':'吉林','HL':'黑龙江','SH':'上海','JS':'江苏','ZJ':'浙江','AH':'安徽','FJ':'福建','JX':'江西','SD':'山东','HA':'河南','HB':'湖北','HN':'湖南','GD':'广东','GX':'广西','HI':'海南','CQ':'重庆','SC':'四川','GZ':'贵州','YN':'云南','XZ':'西藏','SN':'陕西','GS':'甘肃','QH':'青海','NX':'宁夏','XJ':'新疆'};
+  const provinceEnglish = {'beijing':'北京','tianjin':'天津','hebei':'河北','shanxi':'山西','inner mongolia':'内蒙古','liaoning':'辽宁','jilin':'吉林','heilongjiang':'黑龙江','shanghai':'上海','jiangsu':'江苏','zhejiang':'浙江','anhui':'安徽','fujian':'福建','jiangxi':'江西','shandong':'山东','henan':'河南','hubei':'湖北','hunan':'湖南','guangdong':'广东','guangxi':'广西','hainan':'海南','chongqing':'重庆','sichuan':'四川','guizhou':'贵州','yunnan':'云南','tibet':'西藏','xizang':'西藏','shaanxi':'陕西','gansu':'甘肃','qinghai':'青海','ningxia':'宁夏','xinjiang':'新疆'};
+  let locationRequest = 0;
+  function displayLocal(name, message) {
+    $('local-name').textContent = name || '未选择地区';
+    $('local-status').textContent = message;
+    const values = data && name && data.provinces[name];
+    ['92', '95'].forEach(grade => { $('local-' + grade).innerHTML = `${format(price(values && values['t' + grade]))} <small>元/升</small>`; });
+  }
+  function resolveProvince(location) {
+    if (location.countryCode !== 'CN') return null;
+    const code = String(location.principalSubdivisionCode || '').toUpperCase();
+    if (code.startsWith('CN-') && provinceCodes[code.slice(3)]) return provinceCodes[code.slice(3)];
+    const subdivision = String(location.principalSubdivision || '').trim();
+    const chinese = Object.values(provinceCodes).find(name => subdivision.startsWith(name));
+    if (chinese) return chinese;
+    const normalized = subdivision.toLowerCase();
+    const match = Object.keys(provinceEnglish).sort((a, b) => b.length - a.length).find(name => normalized === name || normalized.startsWith(name + ' '));
+    return match ? provinceEnglish[match] : null;
+  }
+  function populateLocal() {
+    $('local-province').innerHTML = '<option value="">手动选择省份</option>' + Object.keys(data.provinces).sort((a,b) => a.localeCompare(b, 'zh-CN')).map(name => `<option value="${escape(name)}">${escape(name)}</option>`).join('');
+  }
+  function locate() {
+    const request = ++locationRequest;
+    $('local-province').value = '';
+    if (!navigator.geolocation) { displayLocal('', '浏览器不支持定位，请手动选择省份。'); return; }
+    $('locate-button').disabled = true;
+    displayLocal('', '正在获取位置…');
+    navigator.geolocation.getCurrentPosition(async position => {
+      if (request !== locationRequest) return;
+      $('local-status').textContent = '正在识别所在省份…';
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      try {
+        const params = new URLSearchParams({latitude: String(position.coords.latitude), longitude: String(position.coords.longitude), localityLanguage: 'zh'});
+        const response = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?' + params, {signal: controller.signal});
+        if (!response.ok) throw new Error('reverse geocoding failed');
+        const result = await response.json();
+        if (request !== locationRequest) return;
+        const province = resolveProvince(result);
+        if (!province || !data || !data.provinces[province]) { displayLocal('', '未识别到支持的省份，请手动选择。'); return; }
+        $('local-province').value = province;
+        displayLocal(province, '根据定位识别 · 省级参考价');
+      } catch (error) {
+        if (request === locationRequest) displayLocal('', '位置识别失败，请重试或手动选择省份。');
+      } finally {
+        clearTimeout(timer);
+        if (request === locationRequest) $('locate-button').disabled = false;
+      }
+    }, error => {
+      if (request !== locationRequest) return;
+      $('locate-button').disabled = false;
+      displayLocal('', error.code === 1 ? '定位权限未授权，请手动选择省份。' : '无法获取位置，请重试或手动选择省份。');
+    }, {enableHighAccuracy: false, timeout: 10000, maximumAge: 0});
+  }
+  function locateIfAlreadyAllowed() {
+    if (!navigator.permissions || !navigator.permissions.query) return;
+    navigator.permissions.query({name: 'geolocation'}).then(permission => {
+      if (permission.state === 'granted' && locationRequest === 0) locate();
+    }).catch(() => {});
+  }
+  $('locate-button').addEventListener('click', locate);
+  $('local-province').addEventListener('change', event => {
+    locationRequest++;
+    $('locate-button').disabled = false;
+    const province = event.target.value;
+    displayLocal(province, province ? '手动选择 · 省级参考价' : '点击定位或手动选择省份');
+  });
+
   const chartColors = ['#237957', '#e19a39', '#557cc8', '#b76176', '#8f73b7', '#27a0a2', '#bb7954'];
   $('trend-region').innerHTML = '<option value="北京">北京</option>' + Object.keys(regions).map(region => `<option value="${escape(region)}">${escape(region)}</option>`).join('');
 
@@ -159,8 +231,8 @@
       data = await loadLatest();
       const date = new Date(data.updated_at);
       $('updated').textContent = isNaN(date) ? (data.updated_at || '未知') : new Intl.DateTimeFormat('zh-CN', {timeZone:'Asia/Shanghai', year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(date) + '（北京时间）';
-      renderStats(); renderRanking(); renderTable();
-    } catch (error) { $('updated').textContent = '加载失败'; $('load-error').classList.remove('hidden'); $('stats').innerHTML = ''; $('content').innerHTML = '<div class="empty">暂无油价数据</div>'; }
+      renderStats(); renderRanking(); renderTable(); populateLocal(); $('locate-button').disabled = false; locateIfAlreadyAllowed();
+    } catch (error) { displayLocal('', '油价数据加载失败，请稍后重试。'); $('updated').textContent = '加载失败'; $('load-error').classList.remove('hidden'); $('stats').innerHTML = ''; $('content').innerHTML = '<div class="empty">暂无油价数据</div>'; }
     try { const response = await fetch('data/history-index.json', {cache:'no-cache'}); if (!response.ok) throw new Error('History unavailable'); const result = await response.json(); if (!Array.isArray(result.days)) throw new Error('Invalid history'); history = result; } catch (error) { history = null; }
     if (data) renderStats();
     renderChart();
