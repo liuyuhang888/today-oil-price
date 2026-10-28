@@ -37,6 +37,10 @@ const context = {document:{getElementById:id=>elements[id]}, fetch:async url=>({
 vm.runInNewContext(fs.readFileSync('app.js','utf8'), context);
 setTimeout(() => {
   const chart = elements.chart;
+  assert(elements['chart-label'].textContent.includes('北京'));
+  assert(elements['chart-legend'].innerHTML.includes('北京'));
+  assert(!elements['chart-legend'].innerHTML.includes('天津'));
+  elements['trend-region'].value = '华北'; elements['trend-region'].listeners.change();
   assert(elements['chart-label'].textContent.includes('华北'));
   assert(elements['chart-legend'].innerHTML.includes('北京') && elements['chart-legend'].innerHTML.includes('天津'));
   assert(chart.innerHTML.includes('#237957') && chart.innerHTML.includes('#e19a39'));

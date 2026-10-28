@@ -45,12 +45,12 @@
     $('content').innerHTML = `<div class="table-wrap"><table><thead><tr><th scope="col">省份 / 地区</th>${fuels.map(([,name]) => `<th scope="col">${name}</th>`).join('')}</tr></thead><tbody>${names.map(name => `<tr><td>${escape(name)}<span class="region-tag">${escape(regionOf[name] || '其他')}</span></td>${fuels.map(([field]) => `<td>${format(price(data.provinces[name][field]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
   const chartColors = ['#237957', '#e19a39', '#557cc8', '#b76176', '#8f73b7', '#27a0a2', '#bb7954'];
-  $('trend-region').innerHTML = Object.keys(regions).map(region => `<option value="${escape(region)}">${escape(region)}</option>`).join('');
+  $('trend-region').innerHTML = '<option value="北京">北京</option>' + Object.keys(regions).map(region => `<option value="${escape(region)}">${escape(region)}</option>`).join('');
 
   function renderChart() {
     const field = $('trend-fuel').value, region = $('trend-region').value, year = beijingYear();
     const fuel = fuels.find(item => item[0] === field);
-    const names = regions[region] || [];
+    const names = region === '北京' ? ['北京'] : (regions[region] || []);
     $('chart-label').textContent = `${region} · ${fuel ? fuel[1] : ''}`;
     $('chart-legend').innerHTML = '';
     $('chart-value').textContent = '—';
