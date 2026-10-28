@@ -82,6 +82,25 @@
     ['92', '95'].forEach(grade => { $('local-' + grade).innerHTML = `${format(price(values && values['t' + grade]))} <small>元/升</small>`; });
     renderCalculator();
   }
+  // Values are tied to specific model years/configurations, not every trim.
+  const vehiclePresets = [
+    {id:'emgrand', name:'吉利帝豪第4代 CVT', value:'6.18', detail:'2025款 1.5L CVT旗舰型，WLTC综合油耗', source:'https://www.dongchedi.com/auto/params-carIds-110853'},
+    {id:'song', name:'比亚迪宋Pro DM-i', value:'4.90', detail:'2025款 第二代 115KM超越型，WLTC亏电油耗', source:'https://www.dongchedi.com/auto/params-carIds-240804'},
+    {id:'qin', name:'比亚迪秦PLUS DM-i', value:'3.90', detail:'2025款 智驾版 55KM领先型，WLTC亏电油耗', source:'https://www.dongchedi.com/auto/params-carIds-x-4802'},
+    {id:'han', name:'比亚迪汉 DM-i', value:'5.10', detail:'2022款 121KM尊贵型，WLTC亏电油耗', source:'https://www.dongchedi.com/auto/params-carIds-72789-60262-72788-72691-72110'},
+    {id:'c16', name:'零跑C16增程', value:'6.42', detail:'2026款 280激光雷达智尊版，WLTC亏电油耗', source:'https://pdf.dfcfw.com/pdf/H3_AP202604101821111556_1.pdf?1775826218000.pdf='}
+  ];
+  $('calc-model').innerHTML = '<option value="">手动输入油耗</option>' + vehiclePresets.map(item => `<option value="${item.id}">${escape(item.name)} · ${item.value} L/100km</option>`).join('');
+  $('calc-model').addEventListener('change', event => {
+    const preset = vehiclePresets.find(item => item.id === event.target.value);
+    if (!preset) {
+      $('calc-preset-note').textContent = '手动输入实际油耗可获得更贴近行程的估算。';
+      return;
+    }
+    $('calc-consumption').value = preset.value;
+    $('calc-preset-note').innerHTML = `${escape(preset.detail)} ${preset.value} L/100km。<a href="${escape(preset.source)}" target="_blank" rel="noopener">查看数据来源 ↗</a>；具体油耗可自行修改。`;
+    renderCalculator();
+  });
   function renderCalculator() {
     const consumptionText = $('calc-consumption').value.trim(), distanceText = $('calc-distance').value.trim();
     const consumption = Number(consumptionText), distance = Number(distanceText);
@@ -97,7 +116,13 @@
     else if (!valid || !Number.isFinite(liters)) $('calc-status').textContent = '请填写大于 0 的油耗和里程。';
     else $('calc-status').textContent = `${localProvince} · 预计用油 ${liters.toFixed(2)} 升；价格缺失的油品无法计算。`;
   }
-  $('calc-consumption').addEventListener('input', renderCalculator);
+  $('calc-consumption').addEventListener('input', () => {
+    if ($('calc-model').value) {
+      $('calc-model').value = '';
+      $('calc-preset-note').textContent = '已切换为手动输入油耗。';
+    }
+    renderCalculator();
+  });
   $('calc-distance').addEventListener('input', renderCalculator);
 
   function resolveProvince(result, latitude, longitude) {

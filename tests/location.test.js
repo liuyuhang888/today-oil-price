@@ -13,7 +13,7 @@ class Element {
   get innerHTML(){return this._html;}
   addEventListener(name,fn){this.listeners[name]=fn;}
 }
-const ids=['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','load-error','locate-button','local-province','local-name','local-status','local-92','local-95','calc-consumption','calc-distance','calc-92','calc-95','calc-status'];
+const ids=['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','load-error','locate-button','local-province','local-name','local-status','local-92','local-95','calc-model','calc-preset-note','calc-consumption','calc-distance','calc-92','calc-95','calc-status'];
 const elements=Object.fromEntries(ids.map(id=>[id,new Element(id)]));
 const provinces={北京:{t92:'8.61',t95:'9.17'},广东:{t92:'8.63',t95:'9.35'},天津:{t92:'8.61',t95:'0.00'}};
 let success, failure, result={results:[{country_code:'CN',province:'广东省',center:{lat:23.1,lng:113.3}}]}, calls=0;
@@ -32,6 +32,19 @@ const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
   elements['calc-distance'].listeners.input();
   assert.strictEqual(elements['calc-92'].textContent,'¥ 68.88');
   assert.strictEqual(elements['calc-95'].textContent,'¥ 73.36');
+  const models={emgrand:'6.18',song:'4.90',qin:'3.90',han:'5.10',c16:'6.42'};
+  for (const [id,value] of Object.entries(models)) {
+    elements['calc-model'].value=id;
+    elements['calc-model'].listeners.change({target:{value:id}});
+    assert.strictEqual(elements['calc-consumption'].value,value);
+    assert(elements['calc-preset-note'].innerHTML.includes('查看数据来源'));
+    assert.strictEqual(elements['calc-92'].textContent,`¥ ${(Number(value)*8.61).toFixed(2)}`);
+  }
+  assert(!elements['calc-model'].innerHTML.includes('零跑A10'));
+  elements['calc-consumption'].value='8'; elements['calc-consumption'].listeners.input();
+  assert.strictEqual(elements['calc-model'].value,'');
+  assert.strictEqual(elements['calc-92'].textContent,'¥ 68.88');
+
   assert(elements['calc-status'].textContent.includes('预计用油 8.00 升'));
   elements['calc-distance'].value='-10'; elements['calc-distance'].listeners.input();
   assert.strictEqual(elements['calc-92'].textContent,'—');
