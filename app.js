@@ -107,31 +107,64 @@
     $('calc-model').innerHTML = '<option value="">手动输入油耗</option>' + vehiclePresets.filter(item => item.brand === brand && item.year === year).map(item => `<option value="${item.id}">${escape(item.name)}${item.value === null ? ' · 请手动填写' : ' · ' + item.value + ' L/100km'}</option>`).join('');
     $('calc-model').value = '';
   }
-  let vehicleInteracted = false;
+  let vehicleInteracted = false, vehicleManifest = null;
+  const shardRequests = new Map();
   function populateVehicleBrands() {
     const selected = $('calc-brand').value;
-    $('calc-brand').innerHTML = '<option value="">选择品牌</option>' + [...new Set(vehiclePresets.map(item => item.brand))].sort((a,b) => a.localeCompare(b, 'zh-CN')).map(brand => `<option value="${escape(brand)}">${escape(brand)}</option>`).join('');
+    const brands = [...new Set([...vehiclePresets.map(item => item.brand), ...Object.keys(vehicleManifest && vehicleManifest.brands || {})])];
+    $('calc-brand').innerHTML = '<option value="">选择品牌</option>' + brands.sort((a,b) => a.localeCompare(b, 'zh-CN')).map(brand => `<option value="${escape(brand)}">${escape(brand)}</option>`).join('');
     $('calc-brand').value = selected;
   }
   populateVehicleBrands();
+  function refreshSelectedBrand(brand) {
+    if (!brand || $('calc-brand').value !== brand) return;
+    const year = $('calc-year').value, model = $('calc-model').value;
+    updateVehicleYears(brand, year);
+    $('calc-model').value = model;
+  }
+  async function ensureBrandCatalog(brand) {
+    const shard = vehicleManifest && vehicleManifest.brands[brand];
+    if (!shard || !/^\d{2}$/.test(shard)) return;
+    if (!shardRequests.has(shard)) {
+      const pending = fetch(`data/vehicles/${shard}.json`, {cache:'no-cache'}).then(response => {
+        if (!response.ok) throw new Error('Vehicle shard unavailable');
+        return response.json();
+      }).then(catalog => {
+        if (!Array.isArray(catalog.rows)) throw new Error('Invalid vehicle shard');
+        catalog.rows.forEach(row => {
+          if (!Array.isArray(row) || row.length < 6 || !row[0] || !row[1] || !row[2] || !row[3]) return;
+          const value = typeof row[4] === 'number' && row[4] > 0 && Number.isFinite(row[4]) ? row[4].toFixed(2) : null;
+          vehiclePresets.push({id:'catalog-' + row[0], brand:String(row[1]), year:String(row[2]), name:String(row[3]), value, detail:row[5] === 3 ? '插混/增程车型，请手动填写实际油耗' : '公开目录参考值，工况及适用市场请核对来源', source:'https://eficien.com/vehicles.html'});
+        });
+      }).catch(error => { shardRequests.delete(shard); throw error; });
+      shardRequests.set(shard, pending);
+    }
+    return shardRequests.get(shard);
+  }
   async function loadVehicleCatalog() {
     try {
-      const response = await fetch('data/vehicle-catalog.json', {cache:'no-cache'});
+      const response = await fetch('data/vehicles/manifest.json', {cache:'no-cache'});
       if (!response.ok) throw new Error('Catalog unavailable');
-      const catalog = await response.json();
-      if (!Array.isArray(catalog.rows)) throw new Error('Invalid catalog');
-      catalog.rows.forEach(row => {
-        if (!Array.isArray(row) || row.length < 6 || !row[0] || !row[1] || !row[2] || !row[3]) return;
-        const value = typeof row[4] === 'number' && row[4] > 0 && Number.isFinite(row[4]) ? row[4].toFixed(2) : null;
-        vehiclePresets.push({id:'catalog-' + row[0], brand:String(row[1]), year:String(row[2]), name:String(row[3]), value, detail:row[5] === 3 ? '插混/增程车型，请手动填写实际油耗' : '公开目录参考值，工况及适用市场请核对来源', source:'https://eficien.com/vehicles.html'});
-      });
-      const selectedBrand = $('calc-brand').value, selectedYear = $('calc-year').value, selectedModel = $('calc-model').value;
+      const manifest = await response.json();
+      if (!manifest.brands || typeof manifest.brands !== 'object') throw new Error('Invalid catalog');
+      vehicleManifest = manifest;
       populateVehicleBrands();
-      if (selectedBrand) { updateVehicleYears(selectedBrand, selectedYear); $('calc-model').value = selectedModel; }
-      $('vehicle-coverage').textContent = `已收录 ${catalog.rows.length} 条燃油、混动及插混车型记录，含海外车型；部分车型需手动填写油耗。`;
+      $('vehicle-coverage').textContent = `已收录 ${manifest.count} 条燃油、混动及插混车型记录，含海外车型；部分车型需手动填写油耗。`;
+      const brand = $('calc-brand').value;
+      if (brand) { await ensureBrandCatalog(brand); refreshSelectedBrand(brand); }
     } catch (_) { $('vehicle-coverage').textContent = '完整车型目录暂不可用，可选择已核验车型或手动输入油耗。'; }
   }
-  $('calc-brand').addEventListener('change', () => { vehicleInteracted = true; updateVehicleYears($('calc-brand').value, ''); $('calc-preset-note').textContent = '请选择年款和车型；当前油耗已保留，请确认。'; savePreferences({model:''}); });
+  $('calc-brand').addEventListener('change', async () => {
+    vehicleInteracted = true;
+    const brand = $('calc-brand').value;
+    updateVehicleYears(brand, '');
+    $('calc-preset-note').textContent = '正在加载车型，当前油耗已保留。';
+    savePreferences({model:'',brand,year:''});
+    try {
+      await ensureBrandCatalog(brand);
+      if ($('calc-brand').value === brand) { refreshSelectedBrand(brand); $('calc-preset-note').textContent = '请选择年款和车型；当前油耗已保留，请确认。'; }
+    } catch (_) { if ($('calc-brand').value === brand) $('calc-preset-note').textContent = '车型加载失败，请重试或手动输入油耗。'; }
+  });
   $('calc-year').addEventListener('change', () => { vehicleInteracted = true; updateVehicleModels($('calc-brand').value, $('calc-year').value); $('calc-preset-note').textContent = '请选择车型；当前油耗已保留，请确认。'; savePreferences({model:''}); });
   $('calc-model').addEventListener('change', event => {
     vehicleInteracted = true;
@@ -149,7 +182,7 @@
       renderCalculator();
       return;
     }
-    savePreferences({model:preset.id, scenario:'reference', consumption:preset.value});
+    savePreferences({model:preset.id, brand:preset.brand, year:preset.year, scenario:'reference', consumption:preset.value});
     $('calc-preset-note').innerHTML = `${escape(preset.detail)} ${preset.value} L/100km。<a href="${escape(preset.source)}" target="_blank" rel="noopener">查看数据来源 ↗</a>；具体油耗可自行修改。`;
     renderCalculator();
   });
@@ -437,7 +470,8 @@
       if (typeof saved.consumption === 'string') $('calc-consumption').value = saved.consumption;
       if (['reference','city','highway'].includes(saved.scenario)) $('calc-scenario').value = saved.scenario;
       renderCalculator();
-      loadVehicleCatalog().then(() => {
+      loadVehicleCatalog().then(async () => {
+        if (!vehicleInteracted && saved.brand) { try { await ensureBrandCatalog(saved.brand); } catch (_) {} }
         const preset = vehiclePresets.find(item => item.id === saved.model);
         if (!vehicleInteracted && preset && saved.consumption === preset.value) { $('calc-brand').value = preset.brand; updateVehicleYears(preset.brand, preset.year); $('calc-model').value = preset.id; $('calc-preset-note').innerHTML = `${escape(preset.detail)} ${preset.value} L/100km。<a href="${escape(preset.source)}" target="_blank" rel="noopener">查看数据来源 ↗</a>；具体油耗可自行修改。`; }
       });

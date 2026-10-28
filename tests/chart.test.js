@@ -34,7 +34,7 @@ const history = {days:[
 ]};
 class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : ['2026-10-28T00:00:00Z'])); } }
 const adjustments = {days:[history.days[1], {date:'2026-10-27', source:'eastmoney', provinces}]};
-const context = {document:{getElementById:id=>elements[id]}, fetch:async url=>({ok:true,json:async()=>url.includes('history-index') ? history : url.includes('imported-history') ? adjustments : url.includes('vehicle-catalog') ? {rows:[]} : {updated_at:'2026-10-28T08:00:00+08:00',provinces}}), Date:FixedDate, Intl, console, navigator:{}, AbortController, URLSearchParams, setTimeout, clearTimeout};
+const context = {document:{getElementById:id=>elements[id]}, fetch:async url=>({ok:true,json:async()=>url.includes('history-index') ? history : url.includes('imported-history') ? adjustments : url.includes('vehicles/manifest.json') ? {brands:{},count:0} : {updated_at:'2026-10-28T08:00:00+08:00',provinces}}), Date:FixedDate, Intl, console, navigator:{}, AbortController, URLSearchParams, setTimeout, clearTimeout};
 vm.runInNewContext(fs.readFileSync('app.js','utf8'), context);
 setTimeout(() => {
   const chart = elements.chart;

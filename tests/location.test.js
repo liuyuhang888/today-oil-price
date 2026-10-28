@@ -20,14 +20,14 @@ let boundaryData=null, success, failure, result={results:[{country_code:'CN',pro
 const storage={};
 const localStorage={getItem:key=>storage[key] || null,setItem:(key,value)=>{storage[key]=value;}};
 const navigator={geolocation:{getCurrentPosition(ok,fail){success=ok;failure=fail;calls++;}},permissions:{query:async()=>({state:'prompt'})}};
-const fetch=async url=>({ok:!url.includes('geo.datav.aliyun.com') || !!boundaryData,json:async()=>url.includes('geo.datav.aliyun.com')?boundaryData:url.includes('uapis.cn/api/v1/misc/district')?result:url.includes('history-index')||url.includes('imported-history')?{days:[]}:url.includes('vehicle-catalog')?{rows:[['one','测试品牌','2025','测试燃油车',6.5,0],['two','测试品牌','2025','测试插混车',null,3]]}:{updated_at:'2026-10-28T08:00:00+08:00',provinces}});
+const fetch=async url=>({ok:!url.includes('geo.datav.aliyun.com') || !!boundaryData,json:async()=>url.includes('geo.datav.aliyun.com')?boundaryData:url.includes('uapis.cn/api/v1/misc/district')?result:url.includes('history-index')||url.includes('imported-history')?{days:[]}:url.includes('vehicles/manifest.json')?{brands:{'测试品牌':'00'},count:2}:url.includes('vehicles/00.json')?{rows:[['one','测试品牌','2025','测试燃油车',6.5,0],['two','测试品牌','2025','测试插混车',null,3]]}:{updated_at:'2026-10-28T08:00:00+08:00',provinces}});
 vm.runInNewContext(fs.readFileSync('app.js','utf8'),{document:{getElementById:id=>elements[id]},fetch,navigator,localStorage,Date,Intl,console,AbortController,URLSearchParams,setTimeout,clearTimeout});
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 (async()=>{
   await tick();
   assert.strictEqual(calls,0); // Initial permission prompt must follow a user click.
   assert(elements['calc-brand'].innerHTML.includes('测试品牌'));
-  elements['calc-brand'].value='测试品牌'; elements['calc-brand'].listeners.change();
+  elements['calc-brand'].value='测试品牌'; await elements['calc-brand'].listeners.change();
   assert(elements['calc-year'].innerHTML.includes('2025'));
   elements['calc-year'].value='2025'; elements['calc-year'].listeners.change();
   assert(elements['calc-model'].innerHTML.includes('测试燃油车'));

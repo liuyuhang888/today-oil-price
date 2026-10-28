@@ -52,9 +52,19 @@ def build(manifest, catalog):
 
 def main():
     data = build(fetch('manifest.json'), fetch('index.json'))
-    path = ROOT/'data'/'vehicle-catalog.json'
-    path.write_text(json.dumps(data, ensure_ascii=False, separators=(',',':'))+'\n',encoding='utf-8')
-    print('vehicle catalog:', len(data['rows']), 'variants')
+    out = ROOT/'data'/'vehicles'
+    out.mkdir(parents=True, exist_ok=True)
+    shards = [[] for _ in range(16)]
+    brands = {}
+    for row in data['rows']:
+        slot = int(hashlib.sha256(row[1].encode('utf-8')).hexdigest()[:8], 16) % len(shards)
+        brands[row[1]] = f'{slot:02d}'
+        shards[slot].append(row)
+    for index, rows in enumerate(shards):
+        (out/f'{index:02d}.json').write_text(json.dumps({'rows':rows},ensure_ascii=False,separators=(',',':'))+'\n',encoding='utf-8')
+    manifest = {'source':data['source'], 'generated_at':data['generated_at'], 'count':len(data['rows']), 'brands':brands}
+    (out/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':'))+'\n',encoding='utf-8')
+    print('vehicle catalog:', len(data['rows']), 'variants in',len(shards),'shards')
 
 
 if __name__ == '__main__': main()
