@@ -16,6 +16,8 @@ import sys
 import urllib.request
 
 from build_history import build_history
+from import_eastmoney_history import import_year
+from update_adjustment_calendar import update_notice
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -154,7 +156,16 @@ def main() -> int:
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
 
-    build_history(DATA_DIR)
+    try:
+        import_year(now.year, DATA_DIR)
+    except Exception as e:
+        print(f"[history] adjustment import failed, retaining existing records: {e}")
+        build_history(DATA_DIR)
+
+    try:
+        update_notice(DATA_DIR / "adjustment-calendar.json")
+    except Exception as e:
+        print(f"[calendar] update failed, retaining existing notice: {e}")
 
     print(f"[done] provinces={data['province_count']} "
           f"updated_at={data['updated_at']} content_changed={changed}")

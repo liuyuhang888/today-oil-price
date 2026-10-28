@@ -4,7 +4,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 class Element {
-  constructor(id) { this.id = id; this.value = ''; this.textContent = ''; this.listeners = {}; this.attributes = {}; this.hidden = false; this.classList = {remove() {}, toggle() {}}; this._html = ''; }
+  constructor(id) { this.id = id; this.value = id === 'calc-scenario' ? 'reference' : ''; this.textContent = ''; this.listeners = {}; this.attributes = {}; this.hidden = false; this.classList = {remove() {}, toggle() {}}; this._html = ''; }
   set innerHTML(html) {
     this._html = html;
     if (['trend-region', 'trend-fuel', 'rank-fuel'].includes(this.id) && !this.value) {
@@ -24,7 +24,7 @@ class Element {
   addEventListener(name, callback) { this.listeners[name] = callback; }
   querySelector(selector) { return selector === 'svg' ? this.svg : selector === '.chart-cursor' ? this.cursor : this.tooltip; }
 }
-const ids = ['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','load-error','locate-button','local-province','local-name','local-status','local-92','local-95','calc-model','calc-preset-note','calc-consumption','calc-distance','calc-92','calc-95','calc-status'];
+const ids = ['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','freshness','load-error','adjustment-last','adjustment-next','adjustment-tip','locate-button','local-province','local-name','local-status','local-92','local-95','vehicle-coverage','calc-scenario','calc-brand','calc-year','calc-model','calc-electric-enabled','electric-inputs','calc-electric-distance','calc-electric-use','calc-electric-price','calc-preset-note','calc-consumption','calc-distance','calc-92','calc-95','calc-status'];
 const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
 const provinces = {北京:{t92: '8.61', t95:'9.00', t0:'7.00', t98:'10.67'}, 天津:{t92:'8.61'}, 河北:{t92:'8.61'}, 山西:{t92:'8.55'}, 内蒙古:{t92:'8.62'}};
 const history = {days:[
@@ -33,15 +33,16 @@ const history = {days:[
   {date:'2026-10-28', source:'archive', provinces}
 ]};
 class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : ['2026-10-28T00:00:00Z'])); } }
-const context = {document:{getElementById:id=>elements[id]}, fetch:async url=>({ok:true,json:async()=>url.includes('history-index') ? history : {updated_at:'2026-10-28T08:00:00+08:00',provinces}}), Date:FixedDate, Intl, console, navigator:{}, AbortController, URLSearchParams, setTimeout, clearTimeout};
+const adjustments = {days:[history.days[1], {date:'2026-10-27', source:'eastmoney', provinces}]};
+const context = {document:{getElementById:id=>elements[id]}, fetch:async url=>({ok:true,json:async()=>url.includes('history-index') ? history : url.includes('imported-history') ? adjustments : url.includes('vehicle-catalog') ? {rows:[]} : {updated_at:'2026-10-28T08:00:00+08:00',provinces}}), Date:FixedDate, Intl, console, navigator:{}, AbortController, URLSearchParams, setTimeout, clearTimeout};
 vm.runInNewContext(fs.readFileSync('app.js','utf8'), context);
 setTimeout(() => {
   const chart = elements.chart;
   assert(elements.stats.innerHTML.includes('stat-change-up">上涨 +1.72 元/升'));
   assert(elements.stats.innerHTML.includes('stat-change-flat">持平 0.00 元/升'));
   assert(elements.stats.innerHTML.includes('stat-change-down">下跌 −0.50 元/升'));
-  assert(elements.stats.innerHTML.includes('暂无上次可比数据'));
-  assert(elements.stats.innerHTML.includes('较 2026-02-04 · 2 个可比地区'));
+  assert(elements.stats.innerHTML.includes('暂无可核验的上次调价数据'));
+  assert(elements.stats.innerHTML.includes('上次调价 2026-10-27 生效 · 2 个地区'));
   assert(elements['chart-label'].textContent.includes('北京'));
   assert(elements['chart-legend'].innerHTML.includes('北京'));
   assert(!elements['chart-legend'].innerHTML.includes('天津'));

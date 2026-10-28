@@ -21,21 +21,24 @@
     <section class="panel local-panel" aria-labelledby="local-title">
       <div class="local-top"><div><span class="section-kicker">YOUR LOCATION</span><h2 id="local-title">当前位置油价</h2><p>查看所在省份的汽油参考价格</p></div><div class="local-controls"><button id="locate-button" type="button" disabled>⌖ 获取当前位置</button><label><span class="sr-only">手动选择省份</span><select id="local-province"><option value="">手动选择省份</option></select></label></div></div>
       <div class="local-content"><div class="local-area"><span>当前地区</span><strong id="local-name">未选择地区</strong><p id="local-status" role="status">点击定位或手动选择省份</p></div><div class="local-prices"><div><span>92号汽油</span><strong id="local-92">— <small>元/升</small></strong></div><div><span>95号汽油</span><strong id="local-95">— <small>元/升</small></strong></div></div></div>
-      <p class="local-privacy">定位需经浏览器授权；坐标将发送至 <a href="https://uapis.cn/docs/api-reference/get-misc-district" target="_blank" rel="noopener">UAPI 国内行政区查询服务</a>，按附近行政区推测省份，请核对结果。价格为省级参考价。</p>
+      <p class="local-privacy">定位需经浏览器授权；优先在本机根据省级边界识别，边界服务不可用时将坐标发送至国内行政区查询服务。省界附近请手动确认。价格为省级参考价。</p>
       <div class="calculator" aria-labelledby="calculator-title">
         <div class="calculator-heading"><div><h3 id="calculator-title">油费计算器</h3><p>输入油耗与里程，按当前地区油价估算。</p></div><span>按省级参考价计算</span></div>
-        <label class="preset-label" for="calc-model">车型油耗预设 <span>（可选）</span></label><select id="calc-model"><option value="">手动输入油耗</option></select><p id="calc-preset-note" class="calculator-note">选择车型可自动填入参考油耗，也可手动输入。</p>
+        <div class="vehicle-selects"><label>品牌<select id="calc-brand"><option value="">选择品牌</option></select></label><label>年款<select id="calc-year"><option value="">选择年款</option></select></label><label>车型<select id="calc-model"><option value="">手动输入油耗</option></select></label></div><p id="vehicle-coverage" class="calculator-note">正在加载车型目录；也可手动输入油耗。</p><p id="calc-preset-note" class="calculator-note">选择车型可自动填入参考油耗，也可手动输入。</p>
+        <label class="preset-label" for="calc-scenario">油耗场景</label><select id="calc-scenario"><option value="reference">车型参考 / 自定义</option><option value="city">市区（填写实际油耗）</option><option value="highway">高速（填写实际油耗）</option></select>
         <div class="calculator-grid"><label>百公里油耗<div class="calculator-input"><input id="calc-consumption" type="number" min="0.01" step="any" inputmode="decimal" placeholder="例如 7.5"><span>升 / 100公里</span></div></label><label>行驶里程<div class="calculator-input"><input id="calc-distance" type="number" min="0.01" step="any" inputmode="decimal" placeholder="例如 500"><span>公里</span></div></label></div>
+        <label class="electric-switch"><input id="calc-electric-enabled" type="checkbox"> 计入充电费用（插混 / 增程）</label><div id="electric-inputs" class="calculator-grid" hidden><label>纯电行驶里程<div class="calculator-input"><input id="calc-electric-distance" type="number" min="0" step="any" inputmode="decimal" placeholder="例如 100"><span>公里</span></div></label><label>百公里电耗<div class="calculator-input"><input id="calc-electric-use" type="number" min="0.01" step="any" inputmode="decimal" placeholder="例如 16"><span>度 / 100公里</span></div></label><label>充电电价<div class="calculator-input"><input id="calc-electric-price" type="number" min="0" step="any" inputmode="decimal" placeholder="例如 0.8"><span>元 / 度</span></div></label></div>
         <div class="calculator-results" aria-live="polite"><div><span>92号预计油费</span><strong id="calc-92">—</strong></div><div><span>95号预计油费</span><strong id="calc-95">—</strong></div><p id="calc-status">请选择地区，并填写油耗和里程。</p></div>
-        <p class="calculator-note">预计用油量 = 百公里油耗 × 里程 ÷ 100。预设仅供参考；插混与增程车型采用亏电油耗，不含充电费用。</p>
+        <p class="calculator-note">预计用油量 = 百公里油耗 × 燃油行驶里程 ÷ 100；启用电费后，纯电里程从总里程中扣除。预设仅供参考。</p>
       </div>
     </section>
     <section class="intro" id="overview">
       <div><div class="eyebrow"><span></span> 全国油价数据看板</div><h1>每一程，<br class="mobile-break">都心中有数<span class="title-dot">.</span></h1><p>关注油价变化，为下一次出发做好准备。</p></div>
-      <div class="update"><span class="live-dot"></span><div><strong>数据更新于</strong><br><span id="updated">加载中…</span></div></div>
+      <div class="update"><span class="live-dot"></span><div><strong>数据更新于</strong><br><span id="updated">加载中…</span><br><span id="freshness" role="status"></span></div></div>
     </section>
     <div id="load-error" class="notice hidden" role="alert">油价数据加载失败，请检查网络后<a href="">重新加载</a>。</div>
     <section aria-label="全国平均油价"><div class="section-heading compact"><div><span class="section-kicker">油价一览</span><h2>全国油价概览</h2></div><p>各省有效价格的算术平均值 · 元/升</p></div><div id="stats" class="stats"><div class="loading">正在加载油价数据…</div></div></section>
+    <section class="panel adjustment-panel" aria-labelledby="adjustment-title"><div><span class="section-kicker">油价调价</span><h2 id="adjustment-title">调价信息</h2><p id="adjustment-last">正在加载最近调价信息…</p></div><div><span>下一次预计调价窗口</span><strong id="adjustment-next">—</strong><p id="adjustment-tip">窗口日期仅供参考，以官方通知为准。</p></div></section>
     <section class="panel trend-panel" id="trend">
       <div class="panel-heading"><div><span class="section-kicker">PRICE TRENDS</span><h2>年度油价走势</h2><p>查看历史调价记录和每日归档，观察油价变化。</p></div><div class="controls"><label>地区<select id="trend-region" aria-label="选择走势图地区"></select></label><label>油品<select id="trend-fuel" aria-label="选择走势图油品"></select></label></div></div>
       <div class="chart-summary"><div><span id="chart-label">北京 · 92号汽油</span><strong id="chart-value">—</strong></div><div class="chart-meta" id="chart-meta">正在加载历史数据…</div></div>

@@ -58,8 +58,15 @@ def import_year(year, data_dir=DATA_DIR):
         raise ValueError('Incomplete historical response; existing import was not changed')
     path = data_dir / 'imported-history.json'
     existing = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'days': []}
+    prior = {day['date']: day for day in existing['days']}
+    for date, provinces in days.items():
+        old_day = prior.get(date, {})
+        for name, values in provinces.items():
+            old = old_day.get('provinces', {}).get(name, {})
+            if old.get('t98') and old.get('t92') == values.get('t92') and old.get('t95') == values.get('t95'):
+                values['t98'] = old['t98']
     kept = [day for day in existing['days'] if not day['date'].startswith(f'{year}-')]
-    kept.extend({'date': date, 'source': 'eastmoney', 'provinces': provinces}
+    kept.extend({'date': date, 'source': 'eastmoney', **({'t98_source': prior[date]['t98_source']} if prior.get(date, {}).get('t98_source') else {}), 'provinces': provinces}
                 for date, provinces in days.items())
     output = {'source': SOURCE, 'days': sorted(kept, key=lambda day: day['date'])}
     path.write_text(json.dumps(output, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
