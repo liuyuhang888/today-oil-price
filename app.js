@@ -14,10 +14,37 @@
 
   function setFuelOptions(id) { $(id).innerHTML = fuels.map(([key, name]) => `<option value="${key}">${name}</option>`).join(''); }
   setFuelOptions('trend-fuel'); setFuelOptions('rank-fuel');
+  // Compare the latest snapshot to the most recent earlier Beijing calendar day.
+  // Only provinces with a valid price at both points participate in the comparison.
+  function previousComparison(field) {
+    if (!history) return null;
+    const parts = new Intl.DateTimeFormat('en', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
+    const get = type => parts.find(part => part.type === type).value;
+    const today = `${get('year')}-${get('month')}-${get('day')}`;
+    const candidates = history.days.filter(day => typeof day.date === 'string' && day.date < today && day.provinces).sort((a, b) => b.date.localeCompare(a.date));
+    for (const day of candidates) {
+      const changes = Object.keys(data.provinces).map(name => {
+        const current = price(data.provinces[name] && data.provinces[name][field]);
+        const previous = price(day.provinces[name] && day.provinces[name][field]);
+        return current === null || previous === null ? null : current - previous;
+      }).filter(value => value !== null);
+      if (changes.length) return {date: day.date, count: changes.length, change: changes.reduce((a, b) => a + b, 0) / changes.length};
+    }
+    return null;
+  }
   function renderStats() {
     $('stats').innerHTML = fuels.slice(0, 4).map(([field, name]) => {
       const values = entries(data.provinces, field);
-      return `<article class="stat"><div class="stat-label">${name} · 全国均价</div><div class="stat-value">${format(average(values))} <small>元/升</small></div><div class="stat-foot">${values.length} 个地区参与统计</div></article>`;
+      const comparison = previousComparison(field);
+      let detail = '<span class="stat-change stat-change-muted">暂无上次可比数据</span>';
+      if (comparison) {
+        const cents = Math.round(Math.abs(comparison.change) * 100 + 1e-8);
+        const direction = cents === 0 ? 'flat' : comparison.change > 0 ? 'up' : 'down';
+        const symbol = direction === 'up' ? '+' : direction === 'down' ? '−' : '';
+        const label = direction === 'up' ? '上涨' : direction === 'down' ? '下跌' : '持平';
+        detail = `<span class="stat-change stat-change-${direction}">${label} ${symbol}${(cents / 100).toFixed(2)} 元/升</span><span class="stat-compare-date">较 ${escape(comparison.date)} · ${comparison.count} 个可比地区</span>`;
+      }
+      return `<article class="stat"><div class="stat-label">${name} · 全国均价</div><div class="stat-value">${format(average(values))} <small>元/升</small></div><div class="stat-comparison">${detail}</div><div class="stat-foot">${values.length} 个地区参与均价统计</div></article>`;
     }).join('');
   }
   function renderRanking() {
@@ -135,6 +162,7 @@
       renderStats(); renderRanking(); renderTable();
     } catch (error) { $('updated').textContent = '加载失败'; $('load-error').classList.remove('hidden'); $('stats').innerHTML = ''; $('content').innerHTML = '<div class="empty">暂无油价数据</div>'; }
     try { const response = await fetch('data/history-index.json', {cache:'no-cache'}); if (!response.ok) throw new Error('History unavailable'); const result = await response.json(); if (!Array.isArray(result.days)) throw new Error('Invalid history'); history = result; } catch (error) { history = null; }
+    if (data) renderStats();
     renderChart();
   }
   $('search').addEventListener('input', () => { if (data) renderTable(); });

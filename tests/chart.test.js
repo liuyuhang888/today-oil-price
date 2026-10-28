@@ -26,10 +26,10 @@ class Element {
 }
 const ids = ['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','load-error'];
 const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
-const provinces = {北京:{t92: '8.61', t98:'10.67'}, 天津:{t92:'8.61'}, 河北:{t92:'8.61'}, 山西:{t92:'8.55'}, 内蒙古:{t92:'8.62'}};
+const provinces = {北京:{t92: '8.61', t95:'9.00', t0:'7.00', t98:'10.67'}, 天津:{t92:'8.61'}, 河北:{t92:'8.61'}, 山西:{t92:'8.55'}, 内蒙古:{t92:'8.62'}};
 const history = {days:[
   {date:'2026-01-21', source:'eastmoney', provinces:{北京:{t92:6.77,t98:null}, 天津:{t92:6.70}, 河北:{t92:6.69}}},
-  {date:'2026-02-04', source:'eastmoney', provinces:{北京:{t92:6.94}, 天津:{t92:6.85}}},
+  {date:'2026-02-04', source:'eastmoney', provinces:{北京:{t92:6.94,t95:9.00,t0:7.50}, 天津:{t92:6.85}}},
   {date:'2026-10-28', source:'archive', provinces}
 ]};
 class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : ['2026-10-28T00:00:00Z'])); } }
@@ -37,6 +37,11 @@ const context = {document:{getElementById:id=>elements[id]}, fetch:async url=>({
 vm.runInNewContext(fs.readFileSync('app.js','utf8'), context);
 setTimeout(() => {
   const chart = elements.chart;
+  assert(elements.stats.innerHTML.includes('stat-change-up">上涨 +1.72 元/升'));
+  assert(elements.stats.innerHTML.includes('stat-change-flat">持平 0.00 元/升'));
+  assert(elements.stats.innerHTML.includes('stat-change-down">下跌 −0.50 元/升'));
+  assert(elements.stats.innerHTML.includes('暂无上次可比数据'));
+  assert(elements.stats.innerHTML.includes('较 2026-02-04 · 2 个可比地区'));
   assert(elements['chart-label'].textContent.includes('北京'));
   assert(elements['chart-legend'].innerHTML.includes('北京'));
   assert(!elements['chart-legend'].innerHTML.includes('天津'));
