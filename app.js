@@ -107,7 +107,7 @@
     $('calc-model').innerHTML = '<option value="">手动输入油耗</option>' + vehiclePresets.filter(item => item.brand === brand && item.year === year).map(item => `<option value="${item.id}">${escape(item.name)}${item.value === null ? ' · 请手动填写' : ' · ' + item.value + ' L/100km'}</option>`).join('');
     $('calc-model').value = '';
   }
-  let vehicleInteracted = false, vehicleManifest = null;
+  let vehicleInteracted = false, vehicleManifest = null, vehicleCatalogReady = Promise.resolve(), vehicleChoiceRequest = 0;
   const shardRequests = new Map();
   function populateVehicleBrands() {
     const selected = $('calc-brand').value;
@@ -134,7 +134,7 @@
         catalog.rows.forEach(row => {
           if (!Array.isArray(row) || row.length < 6 || !row[0] || !row[1] || !row[2] || !row[3]) return;
           const value = typeof row[4] === 'number' && row[4] > 0 && Number.isFinite(row[4]) ? row[4].toFixed(2) : null;
-          vehiclePresets.push({id:'catalog-' + row[0], brand:String(row[1]), year:String(row[2]), name:String(row[3]), value, detail:row[5] === 3 ? '插混/增程车型，请手动填写实际油耗' : '公开目录参考值，工况及适用市场请核对来源', source:'https://eficien.com/vehicles.html'});
+          vehiclePresets.push({id:'catalog-' + row[0], brand:String(row[1]), year:String(row[2]), name:String(row[3]), value, detail:row[5] === 3 ? '插混/增程车型，请手动填写实际油耗' : '国内公开申报参考值，工况及年款请核对来源', source:'https://eficien.com/vehicles.html'});
         });
       }).catch(error => { shardRequests.delete(shard); throw error; });
       shardRequests.set(shard, pending);
@@ -149,13 +149,14 @@
       if (!manifest.brands || typeof manifest.brands !== 'object') throw new Error('Invalid catalog');
       vehicleManifest = manifest;
       populateVehicleBrands();
-      $('vehicle-coverage').textContent = `已收录 ${manifest.count} 条燃油、混动及插混车型记录，含海外车型；部分车型需手动填写油耗。`;
+      $('vehicle-coverage').textContent = `已收录 ${manifest.count} 条国内申报的燃油、混动及插混车型记录；部分车型需手动填写油耗。`;
       const brand = $('calc-brand').value;
       if (brand) { await ensureBrandCatalog(brand); refreshSelectedBrand(brand); }
     } catch (_) { $('vehicle-coverage').textContent = '完整车型目录暂不可用，可选择已核验车型或手动输入油耗。'; }
   }
   $('calc-brand').addEventListener('change', async () => {
     vehicleInteracted = true;
+    vehicleChoiceRequest++;
     const brand = $('calc-brand').value;
     updateVehicleYears(brand, '');
     $('calc-preset-note').textContent = '正在加载车型，当前油耗已保留。';
@@ -165,10 +166,9 @@
       if ($('calc-brand').value === brand) { refreshSelectedBrand(brand); $('calc-preset-note').textContent = '请选择年款和车型；当前油耗已保留，请确认。'; }
     } catch (_) { if ($('calc-brand').value === brand) $('calc-preset-note').textContent = '车型加载失败，请重试或手动输入油耗。'; }
   });
-  $('calc-year').addEventListener('change', () => { vehicleInteracted = true; updateVehicleModels($('calc-brand').value, $('calc-year').value); $('calc-preset-note').textContent = '请选择车型；当前油耗已保留，请确认。'; savePreferences({model:''}); });
-  $('calc-model').addEventListener('change', event => {
-    vehicleInteracted = true;
-    const preset = vehiclePresets.find(item => item.id === event.target.value);
+  $('calc-year').addEventListener('change', () => { vehicleInteracted = true; vehicleChoiceRequest++; updateVehicleModels($('calc-brand').value, $('calc-year').value); $('calc-preset-note').textContent = '请选择车型；当前油耗已保留，请确认。'; savePreferences({model:''}); });
+  function applyVehiclePreset(id) {
+    const preset = vehiclePresets.find(item => item.id === id);
     if (!preset) {
       $('calc-preset-note').textContent = '手动输入实际油耗可获得更贴近行程的估算。';
       savePreferences({model:''});
@@ -185,6 +185,58 @@
     savePreferences({model:preset.id, brand:preset.brand, year:preset.year, scenario:'reference', consumption:preset.value});
     $('calc-preset-note').innerHTML = `${escape(preset.detail)} ${preset.value} L/100km。<a href="${escape(preset.source)}" target="_blank" rel="noopener">查看数据来源 ↗</a>；具体油耗可自行修改。`;
     renderCalculator();
+  }
+  $('calc-model').addEventListener('change', event => { vehicleInteracted = true; vehicleChoiceRequest++; applyVehiclePreset(event.target.value); });
+  let searchIndexPromise = null, searchSequence = 0, searchMatches = [];
+  function loadVehicleSearch() {
+    if (!searchIndexPromise) {
+      searchIndexPromise = fetch('data/vehicles/search.json', {cache:'no-cache'}).then(response => {
+        if (!response.ok) throw new Error('Vehicle search unavailable');
+        return response.json();
+      }).then(result => {
+        if (!Array.isArray(result.rows)) throw new Error('Invalid vehicle search');
+        return result.rows;
+      }).catch(error => { searchIndexPromise = null; throw error; });
+    }
+    return searchIndexPromise;
+  }
+  function normalizeVehicle(value) { return String(value).toLowerCase().replace(/[\s·\-（）()]/g, ''); }
+  $('calc-search').addEventListener('input', async () => {
+    vehicleChoiceRequest++;
+    const sequence = ++searchSequence, input = $('calc-search').value.trim();
+    if (!input) { $('calc-search-results').hidden = true; $('calc-search-hint').textContent = '可搜索品牌、车型名称或年款。'; return; }
+    $('calc-search-hint').textContent = '正在搜索车型…';
+    try {
+      const rows = await loadVehicleSearch();
+      if (sequence !== searchSequence) return;
+      const tokens = input.toLowerCase().split(/\s+/).map(normalizeVehicle).filter(Boolean);
+      const curated = vehiclePresets.filter(item => !item.id.startsWith('catalog-')).map(item => [item.id,item.brand,item.year,item.name]);
+      const matches = curated.concat(rows.map(row => ['catalog-'+row[0],row[1],row[2],row[3]])).filter(row => {
+        const target = normalizeVehicle(row.slice(1).join(' '));
+        return tokens.every(token => target.includes(token));
+      });
+      searchMatches = matches.slice(0,60);
+      $('calc-search-results').innerHTML = '<option value="">选择搜索结果</option>' + searchMatches.map(row => `<option value="${escape(row[0])}">${escape(row[1])} · ${escape(row[2])}款 · ${escape(row[3])}</option>`).join('');
+      $('calc-search-results').hidden = !searchMatches.length;
+      $('calc-search-hint').textContent = matches.length ? `找到 ${matches.length} 条${matches.length > 60 ? '，显示前 60 条，请输入更多关键词' : ''}。` : '没有找到匹配车型，请更换关键词或手动输入油耗。';
+    } catch (_) { if (sequence === searchSequence) { $('calc-search-results').hidden = true; $('calc-search-hint').textContent = '车型搜索暂不可用，请使用下方选择或手动输入。'; } }
+  });
+  $('calc-search-results').addEventListener('change', async event => {
+    const row = searchMatches.find(item => item[0] === event.target.value);
+    if (!row) return;
+    vehicleInteracted = true;
+    const choice = ++vehicleChoiceRequest;
+    $('calc-search-hint').textContent = '正在加载所选车型…';
+    try {
+      await vehicleCatalogReady;
+      await ensureBrandCatalog(row[1]);
+      if (choice !== vehicleChoiceRequest) return;
+      $('calc-brand').value = row[1];
+      updateVehicleYears(row[1], row[2]);
+      $('calc-model').value = row[0];
+      applyVehiclePreset(row[0]);
+      $('calc-search-hint').textContent = '已选车型，可查看来源并按实际情况调整油耗。';
+    } catch (_) { if (choice === vehicleChoiceRequest) $('calc-search-hint').textContent = '车型加载失败，请重试或手动输入油耗。'; }
   });
   function renderCalculator() {
     const consumptionText = $('calc-consumption').value.trim(), distanceText = $('calc-distance').value.trim();
@@ -210,6 +262,8 @@
     else $('calc-status').textContent = `${localProvince} · 预计用油 ${liters.toFixed(2)} 升${electric ? `，电费 ¥ ${powerCost.toFixed(2)}（已计入总额）` : ''}；价格缺失的油品无法计算。`;
   }
   $('calc-scenario').addEventListener('change', () => {
+    vehicleInteracted = true;
+    vehicleChoiceRequest++;
     const scenario = $('calc-scenario').value;
     const saved = readPreferences();
     $('calc-consumption').value = scenario === 'city' ? (saved.cityConsumption || '') : scenario === 'highway' ? (saved.highwayConsumption || '') : '';
@@ -220,6 +274,7 @@
   });
   $('calc-consumption').addEventListener('input', () => {
     vehicleInteracted = true;
+    vehicleChoiceRequest++;
     if ($('calc-model').value) {
       $('calc-model').value = '';
       $('calc-preset-note').textContent = '已切换为手动输入油耗。';
@@ -470,7 +525,8 @@
       if (typeof saved.consumption === 'string') $('calc-consumption').value = saved.consumption;
       if (['reference','city','highway'].includes(saved.scenario)) $('calc-scenario').value = saved.scenario;
       renderCalculator();
-      loadVehicleCatalog().then(async () => {
+      vehicleCatalogReady = loadVehicleCatalog();
+      vehicleCatalogReady.then(async () => {
         if (!vehicleInteracted && saved.brand) { try { await ensureBrandCatalog(saved.brand); } catch (_) {} }
         const preset = vehiclePresets.find(item => item.id === saved.model);
         if (!vehicleInteracted && preset && saved.consumption === preset.value) { $('calc-brand').value = preset.brand; updateVehicleYears(preset.brand, preset.year); $('calc-model').value = preset.id; $('calc-preset-note').innerHTML = `${escape(preset.detail)} ${preset.value} L/100km。<a href="${escape(preset.source)}" target="_blank" rel="noopener">查看数据来源 ↗</a>；具体油耗可自行修改。`; }

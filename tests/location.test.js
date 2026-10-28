@@ -13,14 +13,14 @@ class Element {
   get innerHTML(){return this._html;}
   addEventListener(name,fn){this.listeners[name]=fn;}
 }
-const ids=['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','freshness','load-error','adjustment-last','adjustment-next','adjustment-tip','locate-button','local-province','local-name','local-status','local-92','local-95','vehicle-coverage','calc-scenario','calc-brand','calc-year','calc-model','calc-electric-enabled','electric-inputs','calc-electric-distance','calc-electric-use','calc-electric-price','calc-preset-note','calc-consumption','calc-distance','calc-92','calc-95','calc-status'];
+const ids=['trend-region','trend-fuel','rank-fuel','stats','rank-low','rank-high','insights','search','content','chart-label','chart-value','chart-meta','chart-legend','chart','chart-note','updated','freshness','load-error','adjustment-last','adjustment-next','adjustment-tip','locate-button','local-province','local-name','local-status','local-92','local-95','calc-search','calc-search-results','calc-search-hint','vehicle-coverage','calc-scenario','calc-brand','calc-year','calc-model','calc-electric-enabled','electric-inputs','calc-electric-distance','calc-electric-use','calc-electric-price','calc-preset-note','calc-consumption','calc-distance','calc-92','calc-95','calc-status'];
 const elements=Object.fromEntries(ids.map(id=>[id,new Element(id)]));
 const provinces={北京:{t92:'8.61',t95:'9.17'},广东:{t92:'8.63',t95:'9.35'},天津:{t92:'8.61',t95:'0.00'}};
 let boundaryData=null, success, failure, result={results:[{country_code:'CN',province:'广东省',center:{lat:23.1,lng:113.3}}]}, calls=0;
 const storage={};
 const localStorage={getItem:key=>storage[key] || null,setItem:(key,value)=>{storage[key]=value;}};
 const navigator={geolocation:{getCurrentPosition(ok,fail){success=ok;failure=fail;calls++;}},permissions:{query:async()=>({state:'prompt'})}};
-const fetch=async url=>({ok:!url.includes('geo.datav.aliyun.com') || !!boundaryData,json:async()=>url.includes('geo.datav.aliyun.com')?boundaryData:url.includes('uapis.cn/api/v1/misc/district')?result:url.includes('history-index')||url.includes('imported-history')?{days:[]}:url.includes('vehicles/manifest.json')?{brands:{'测试品牌':'00'},count:2}:url.includes('vehicles/00.json')?{rows:[['one','测试品牌','2025','测试燃油车',6.5,0],['two','测试品牌','2025','测试插混车',null,3]]}:{updated_at:'2026-10-28T08:00:00+08:00',provinces}});
+const fetch=async url=>({ok:!url.includes('geo.datav.aliyun.com') || !!boundaryData,json:async()=>url.includes('geo.datav.aliyun.com')?boundaryData:url.includes('uapis.cn/api/v1/misc/district')?result:url.includes('history-index')||url.includes('imported-history')?{days:[]}:url.includes('vehicles/search.json')?{rows:[['one','测试品牌','2025','测试燃油车'],['two','测试品牌','2025','测试插混车']]}:url.includes('vehicles/manifest.json')?{brands:{'测试品牌':'00'},count:2}:url.includes('vehicles/00.json')?{rows:[['one','测试品牌','2025','测试燃油车',6.5,0],['two','测试品牌','2025','测试插混车',null,3]]}:{updated_at:'2026-10-28T08:00:00+08:00',provinces}});
 vm.runInNewContext(fs.readFileSync('app.js','utf8'),{document:{getElementById:id=>elements[id]},fetch,navigator,localStorage,Date,Intl,console,AbortController,URLSearchParams,setTimeout,clearTimeout});
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 (async()=>{
@@ -33,6 +33,14 @@ const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
   assert(elements['calc-model'].innerHTML.includes('测试燃油车'));
   elements['calc-model'].value='catalog-one'; elements['calc-model'].listeners.change({target:{value:'catalog-one'}});
   assert.strictEqual(elements['calc-consumption'].value,'6.50');
+  elements['calc-search'].value='测试 2025 燃油'; await elements['calc-search'].listeners.input();
+  assert(elements['calc-search-results'].innerHTML.includes('测试燃油车'));
+  assert(!elements['calc-search-results'].innerHTML.includes('测试插混车'));
+  await elements['calc-search-results'].listeners.change({target:{value:'catalog-one'}});
+  assert.strictEqual(elements['calc-consumption'].value,'6.50');
+  assert.strictEqual(elements['calc-year'].value,'2025');
+  elements['calc-search'].value='不存在'; await elements['calc-search'].listeners.input();
+  assert(elements['calc-search-hint'].textContent.includes('没有找到'));
   elements['calc-model'].value='catalog-two'; elements['calc-model'].listeners.change({target:{value:'catalog-two'}});
   assert.strictEqual(elements['calc-consumption'].value,'');
   assert(elements['calc-preset-note'].innerHTML.includes('手动填写'));
